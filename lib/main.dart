@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:kkenglish/forTeachers/main_screen.dart';
 import 'package:kkenglish/kamila/main_screen.dart';
 import 'package:new_version/new_version.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void  main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +21,7 @@ void  main() async {
   SystemChrome.setPreferredOrientations(
       [DeviceOrientation.portraitUp,DeviceOrientation.portraitDown])
       .then((_) =>
-      runApp(const MyApp()));
+      runApp(ProviderScope(child: MyApp())));
 }
 
 class MyApp extends StatefulWidget {
@@ -37,8 +38,8 @@ class _MyAppState extends State<MyApp> {
 
     // Instantiate NewVersion manager object (Using GCP Console app as example)
     final newVersion = NewVersion(
-      iOSId: 'com.google.Vespa',
-      androidId: 'com.google.android.apps.cloudconsole',
+      iOSId: 'fly.kkenglish.kg.kkenglish',
+      androidId: 'fly.kkenglish.kg.kkenglish',
     );
 
     // You can let the plugin handle fetching the status and showing a dialog,
@@ -82,8 +83,8 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.blue,
       ),
       home:
-      NotForKamila(),
-      // KamilaMainScreen(),
+      // NotForKamila(),
+      KamilaMainScreen()
       // MyHomePage(),
 
     );

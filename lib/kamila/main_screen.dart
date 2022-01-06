@@ -490,6 +490,7 @@ class _NewHomeState extends State<KamilaMainScreen> {
             }
           }),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.main,
         onPressed: (){
           Navigator.of(context).push(MaterialPageRoute(
               builder: (BuildContext context) {
@@ -497,7 +498,7 @@ class _NewHomeState extends State<KamilaMainScreen> {
               })
           );
         },
-        child: Icon(Icons.search, color: AppColors.main,),
+        child: Icon(Icons.search, color: Colors.white,),
       ),
     );
   }

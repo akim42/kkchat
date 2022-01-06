@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kkenglish/core/style.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:kkenglish/forTeachers/widget/custom_alertdialog.dart';
+import 'package:kkenglish/forTeachers/widget/link_dialog.dart';
 import 'package:path/path.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:kkenglish/kamila/widget/firebase_api.dart';
@@ -33,9 +33,9 @@ class _ChatNavBarState extends State<ChatNavBar> {
   //Pick image
   Future pickImage1(String from, String to) async{
     final image = await ImagePicker().pickImage(
-        maxHeight: 480,
+        maxHeight: 1080,
         maxWidth: 640,
-        imageQuality: 50,
+        imageQuality: 100,
         source: ImageSource.gallery);
     if (image == null) return;
 
@@ -239,9 +239,28 @@ class _ChatNavBarState extends State<ChatNavBar> {
                         child: const Icon(Icons.image, color: Colors.white, size: 20,),
                       ),
                     ),
+                    GestureDetector(
+                      onTap: (){
+                        showDialog<void>(
+                            context: context,
+                            barrierDismissible: false, // user must tap button!
+                            builder: (BuildContext context) {
+                              return LinkDialogForTeacher(from: widget.from, to: widget.to);
+                            });
+                      },
+                      child: Container(
+                        height: size.height*0.07,
+                        width: size.width*0.1,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.main,
+                        ),
+                        child: const Icon(Icons.insert_link_outlined, color: Colors.white, size: 20,),
+                      ),
+                    ),
                     SizedBox(
                       height: size.height*0.07,
-                      width: size.width*0.7,
+                      width: size.width*0.6,
                       child: TextField(
                           controller: _controller,
                           textCapitalization: TextCapitalization.sentences,

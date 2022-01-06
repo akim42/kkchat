@@ -45,10 +45,12 @@ class _AuthAppState extends State<SingUP> {
     },SetOptions(merge: true),);
   }
 
+  bool buttonPressed = false;
+
 
   @override
   Widget build(BuildContext context) {
-    ValueNotifier<bool> _notifier = ValueNotifier(false);
+    // ValueNotifier<bool> _notifier = ValueNotifier(false);
     final Size size = MediaQuery.of(context).size;
     return
       Scaffold(
@@ -144,13 +146,7 @@ class _AuthAppState extends State<SingUP> {
                               ),
                             ),
                             //ErrorMessage
-                            ValueListenableBuilder(
-                                valueListenable: _notifier,
-                                builder: (context, bool quoteReady, child) {
-
-                                  return quoteReady ? const Center(child: CircularProgressIndicator())
-                                      : Center(child: Text(errorMessage));
-                                }),
+                            buttonPressed ? errorMessage == "" ? Center(child: CircularProgressIndicator()) : Center(child: Text(errorMessage)) : SizedBox(),
                             Container(
                               margin: const EdgeInsets.symmetric(vertical: 10),
                               width: size.width * 0.6,
@@ -163,6 +159,7 @@ class _AuthAppState extends State<SingUP> {
                                     backgroundColor: AppColors.main,
                                   ),
                                   onPressed: () async {
+                                    buttonPressed = true;
                                     try {
                                       await FirebaseAuth.instance
                                           .createUserWithEmailAndPassword(
@@ -172,12 +169,13 @@ class _AuthAppState extends State<SingUP> {
                                     } on FirebaseAuthException catch (error) {
                                       errorMessage = error.message!;
                                     }
-                                    _notifier.value = !_notifier.value;
-                                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                                    if(errorMessage == '') {
+                                      Navigator.of(context).pushReplacement(MaterialPageRoute(
                                         builder: (BuildContext context) {
                                           return AddName(email: emailController.text, password: passwordController.text);
                                         })
-                                    );
+                                      );
+                                    };
                                   },
                                   child: const Text(
                                     "Зарегистрироваться",

@@ -8,13 +8,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:kkenglish/config.dart';
 import 'package:kkenglish/core/style.dart';
 import 'package:intl/intl.dart';
-import 'package:kkenglish/notification/notification.dart';
+import 'package:kkenglish/kamila/widget/image_pinch_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dio/dio.dart';
-import 'package:grouped_list/grouped_list.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 class MessagesWidget extends StatefulWidget {
@@ -45,88 +47,7 @@ class _MessagesWidgetState extends State<MessagesWidget> {
   List<String> existTime = [];
 
 
-  //save image
-  bool loading = false;
-  double progress = 0.0;
-  final Dio dio = Dio();
 
-  Future<bool> saveFile(String url, String fileName) async {
-    Directory directory;
-
-    try{
-      if(Platform.isAndroid){
-        if(await _requestPermission(Permission.storage)){
-          directory = (await getExternalStorageDirectory())!;
-          String newPath = '';
-          List<String> folders = directory.path.split('/');
-          for(int x = 1; x<folders.length;x++){
-            String folder = folders[x];
-            if(folder != 'Android'){
-              newPath += "/"+folder;
-            } else {
-              break;
-            }
-          }
-          newPath = newPath+'/KKenglish';
-          directory = Directory(newPath);
-          print(directory.path);
-        } else {
-          return false;
-        }
-      } else {
-        if(await _requestPermission(Permission.photos)){
-          directory = await getTemporaryDirectory();
-        } else {
-          return false;
-        }
-      }
-      if(!await directory.exists()){
-        await directory.create(recursive: true);
-      }
-      if(await directory.exists()){
-        File saveFile = File(directory.path+"/images/$fileName");
-        await dio.download(url, saveFile.path, onReceiveProgress: (dowloaded, totalSize){
-          setState(() {
-            progress = dowloaded/totalSize;
-          });
-        });
-        if(Platform.isIOS){
-          await ImageGallerySaver.saveFile(saveFile.path,isReturnPathOfIOS: true);
-        }
-        return true;
-      }
-    } catch(e) {
-    }
-    return false;
-  }
-
-  Future<bool> _requestPermission(Permission permission) async {
-    if(await permission.isGranted){
-      return true;
-    } else {
-      var result = await permission.request();
-      if(result == PermissionStatus.granted){
-        return true;
-      } else{
-        return false;
-      }
-    }
-  }
-
-  downloadFile(String url, String fileName) async {
-    setState(() {
-      loading = true;
-    });
-
-    bool downloaded = await saveFile(url, fileName);
-    if(downloaded) {
-    } else {
-    }
-
-    setState(() {
-      loading = false;
-    });
-  }
 
   UploadTask? task1;
   bool image1bool = false;
@@ -181,23 +102,25 @@ class _MessagesWidgetState extends State<MessagesWidget> {
   //   WidgetsBinding.instance.addObserver(this);
   // }
 
-  // void didChangeAppLifecycleState(AppLifecycleState state) {
-  //   switch (state) {
-  //     case AppLifecycleState.resumed:
-  //       print("app in resumed");
-  //       break;
-  //     case AppLifecycleState.inactive:
-  //       print("app in inactive");
-  //       break;
-  //     case AppLifecycleState.paused:
-  //       print("app in paused");
-  //       break;
-  //     case AppLifecycleState.detached:
-  //       print("app in detached");
-  //       break;
-  //   }
-  // }
+  Future deleteMessage (String docIndex) async{
+      // type: 0 = text, 1 = image, 2 = sticker
+      FirebaseFirestore.instance
+          .collection('chatRoom')
+          .doc(widget.from + '-' + widget.to)
+          .collection('messages')
+          .doc(docIndex).delete();
+  }
 
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    currentState.addListener(() {
+      setState(() {
+      });
+    });
+
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,17 +139,6 @@ class _MessagesWidgetState extends State<MessagesWidget> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-
-                    // exist.add(Messages(
-                    //   createdAt: message['createdAt'],
-                    //   dateTime: existTime.contains(DateFormat.MMMMd().format(message['createdAt'].toDate()).toString()) ? '' : DateFormat.MMMMd().format(message['createdAt'].toDate()).toString(),
-                    // ));
-                    //
-                    // existTime.add(DateFormat.MMMMd().format(message['createdAt'].toDate()).toString());
-                    //
-                    // uniquelist = exist
-                    //     .where((chat) => seen.add(chat.createdAt.toString()))
-                    //     .toList();
 
                     return
                           Column(
@@ -250,74 +162,156 @@ class _MessagesWidgetState extends State<MessagesWidget> {
 
                                   //My message
                                   message['authorId'] == widget.myId ?
-                                  Container(
-                                      padding: message['type'] != 'image' ? const EdgeInsets.all(20) : const EdgeInsets.all(0),
-                                      margin: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 0),
-                                      constraints: BoxConstraints(maxWidth: size.width*0.8),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.main,
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(20),
-                                          bottomLeft: Radius.circular(20),
-                                          topLeft: Radius.circular(20),
+                                  GestureDetector(
+                                    //LOng press
+                                    onLongPress: (){
+                                      showDialog(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            title: Center(child: const Text('Удалить ?')),
+                                            actions: <Widget>[
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  TextButton(
+                                                    child: const Text('Нет'),
+                                                    onPressed: () {
+                                                      Navigator.of(context).pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: const Text('Да'),
+                                                    onPressed: () {
+                                                      deleteMessage(message.id);
+                                                      Navigator.of(context).pop();
+                                                    },
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                      );
+                                    },
+                                    child: Container(
+                                        padding: message['type'] != 'image' ? const EdgeInsets.all(20) : const EdgeInsets.all(0),
+                                        margin: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 0),
+                                        constraints: BoxConstraints(maxWidth: size.width*0.8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.main,
+                                          borderRadius: const BorderRadius.only(
+                                            topRight: Radius.circular(20),
+                                            bottomLeft: Radius.circular(20),
+                                            topLeft: Radius.circular(20),
+                                          ),
                                         ),
-                                      ),
-                                      child:
-                                      //Contact type of message
-                                      message['type'] == 'contact' ?
-                                          //Contact type
-                                      GestureDetector(
-                                        child: message['authorId'] == widget.myId ?
-                                         Column(
-                                          children: [
-                                            Text('Контакт', style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600)),
-                                            Text(message['contactName'].toString(), style: GoogleFonts.comfortaa(fontSize: 15, color: Colors.black, fontWeight: FontWeight.w600)),
-                                            Text(message['id'].toString(), style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600))
-                                          ],
-                                        ) : Column(
-                                          children: [
-                                            Text('Контакт', style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
-                                            Text(message['contactName'].toString(), style: GoogleFonts.comfortaa(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
-                                            Text(message['id'].toString(), style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600))
-                                          ],
-                                        ),
-                                      ): message['type'] == 'image' ?
-                                      GestureDetector(
-                                        onTap: (){
-                                            //creating room with user
-                                          saveFile(message['imageUrl'], message['imageUrl']+".jpg");
-                                        },
-                                          child:
-                                        ClipRRect(
-                                            borderRadius: const BorderRadius.only(
-                                              topRight: Radius.circular(20),
-                                              bottomLeft: Radius.circular(20),
-                                              topLeft: Radius.circular(20),
-                                            ),
-                                            child:
-                                            message['imageUrl'] != '' ?
-                                            CachedNetworkImage(
-                                              imageUrl: message['imageUrl'],
-                                            ) :
-                                            Container(
-                                              height: 150,
-                                                width: 150,
-                                                child: Center(
-                                                    child: Container(
-                                                      height: 30,
-                                                        width: 30,
-                                                        child: const CircularProgressIndicator(
-                                                          color: Colors.white,
-                                                        ))))
+                                        child:
+                                        //Contact type of message
+                                        message['type'] == 'contact' ?
+                                            //Contact type
+                                        GestureDetector(
+                                          child: message['authorId'] == widget.myId ?
+                                           Column(
+                                            children: [
+                                              Text('Контакт', style: GoogleFonts.openSans(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600)),
+                                              Text(message['contactName'].toString(), style: GoogleFonts.openSans(fontSize: 15, color: Colors.black, fontWeight: FontWeight.w600)),
+                                              Text(message['id'].toString(), style: GoogleFonts.openSans(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600))
+                                            ],
+                                          ) : Column(
+                                            children: [
+                                              Text('Контакт', style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                                              Text(message['contactName'].toString(), style: GoogleFonts.openSans(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
+                                              Text(message['id'].toString(), style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600))
+                                            ],
+                                          ),
                                         )
-                                      ) :
-                                      Text(message['text'].toString(), style: GoogleFonts.comfortaa(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600))
+                                            :
+                                        message['type'] == 'image' ?
+                                        GestureDetector(
+                                            //on tap
+                                            onTap: (){
+                                              if(message['type'] == 'image'){
+                                                Navigator.of(context).push(MaterialPageRoute(
+                                                    builder: (BuildContext context) {
+                                                      return ImageViewer(image: message['imageUrl'],);
+                                                    })
+                                                );
+                                              }
+                                            },
+                                            child:
+                                          ClipRRect(
+                                              borderRadius: const BorderRadius.only(
+                                                topRight: Radius.circular(20),
+                                                bottomLeft: Radius.circular(20),
+                                                topLeft: Radius.circular(20),
+                                              ),
+                                              child:
+                                              message['imageUrl'] != '' ?
+                                              CachedNetworkImage(
+                                                imageUrl: message['imageUrl'],
+                                              ) :
+                                              Container(
+                                                height: 150,
+                                                  width: 150,
+                                                  child: Center(
+                                                      child: Container(
+                                                        height: 30,
+                                                          width: 30,
+                                                          child: const CircularProgressIndicator(
+                                                            color: Colors.white,
+                                                          ))))
+                                          )
+                                        )
+                                            :
+                                        message['type'] == 'link' ?
+                                        GestureDetector(
+                                          onTap: () async {
+                                            if (!await launch(message['link'])) throw 'Could not launch ${message['link']}';
+                                            },
+                                          child: Column(
+                                            children: [
+                                              Text('Ссылка', style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                                              Text(message['link'], style: GoogleFonts.openSans(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
+                                            ],
+                                          ),
+                                        )
+                                            :
+                                        Text(message['text'].toString(), style: GoogleFonts.openSans(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600))
+                                    ),
                                   ) :
 
 
                                   //other message
                                   GestureDetector(
-                                    onTap: () async {
+                                    //LOng press
+                                    onLongPress: (){
+                                      showDialog(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title: Center(child: const Text('Удалить ?')),
+                                          actions: <Widget>[
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                TextButton(
+                                                  child: const Text('Нет'),
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                ),
+                                                TextButton(
+                                                  child: const Text('Да'),
+                                                  onPressed: () {
+                                                    deleteMessage(message.id);
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    onTap: message['type'] == 'contact' ? () async {
                                       await showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
@@ -340,7 +334,7 @@ class _MessagesWidgetState extends State<MessagesWidget> {
                                           ],
                                         ),
                                       );
-                                    },
+                                    } : () {},
                                     child: Container(
                                       padding: message['type'] != 'image' ? const EdgeInsets.all(20) : const EdgeInsets.all(0),
                                       margin: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 0),
@@ -356,24 +350,26 @@ class _MessagesWidgetState extends State<MessagesWidget> {
                                       child:
                                       message['type'] == 'contact' ?
                                       //Contact type
-                                      message['id'] == widget.myId ? Column(
+                                      Column(
                                         children: [
-                                          Text('Контакт', style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
-                                          Text(message['contactName'].toString(), style: GoogleFonts.comfortaa(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
-                                          Text(message['id'].toString(), style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600))
+                                          Text('Контакт', style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                                          Text(message['contactName'].toString(), style: GoogleFonts.openSans(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
+                                          Text(message['id'].toString(), style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600))
                                         ],
-                                      ) : Column(
-                                        children: [
-                                          Text('Контакт', style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600)),
-                                          Text(message['contactName'].toString(), style: GoogleFonts.comfortaa(fontSize: 15, color: Colors.black, fontWeight: FontWeight.w600)),
-                                          Text(message['id'].toString(), style: GoogleFonts.comfortaa(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w600))
-                                        ],
-                                      ) : message['type'] == 'image' ?
+                                      )
+                                          :
+                                      message['type'] == 'image' ?
                                       GestureDetector(
                                           //Alert dialog Room with user is created
+                                        //on tap
                                           onTap: (){
-                                            //creating room with user
-                                            saveFile(message['imageUrl'], message['imageUrl']+".jpg");
+                                            if(message['type'] == 'image'){
+                                              Navigator.of(context).push(MaterialPageRoute(
+                                                  builder: (BuildContext context) {
+                                                    return ImageViewer(image: message['imageUrl'],);
+                                                  })
+                                              );
+                                            }
                                           },
                                           child:
                                           ClipRRect(
@@ -387,7 +383,20 @@ class _MessagesWidgetState extends State<MessagesWidget> {
                                                 imageUrl: message['imageUrl'],
                                               ),
                                           )
-                                      ) :
+                                      )
+                                          :
+                                      message['type'] == 'link' ?
+                                      GestureDetector(
+                                        onTap: () async {
+                                          if (!await launch(message['link'])) throw 'Could not launch ${message['link']}';
+                                        },
+                                        child: Column(
+                                          children: [
+                                            Text('Ссылка', style: GoogleFonts.openSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                                            Text(message['link'], style: GoogleFonts.openSans(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600)),
+                                          ],
+                                        ),
+                                      ):
                                       Text(message['text'].toString(), style: AppColors.comfort15bw600,),
                                     ),
                                   )
@@ -442,12 +451,3 @@ class Messages {
     required this.dateTime,
   });
 }
-
-// class Time {
-//   Timestamp createdAt;
-//
-//   // List<dynamic> userIds;
-//   Time({
-//     required this.createdAt,
-//   });
-// }
